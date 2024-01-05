@@ -128,10 +128,11 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
-    # 'DEFAULT_PARSER_CLASSES': [
-    #     'rest_framework.parsers.JSONParser',
-    #     'rest_framework_xml.parsers.XMLParser',        
-    # ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.JSONParser',
+        'rest_framework_xml.parsers.XMLParser',        
+    ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.BrowsableAPIRenderer',
         'rest_framework.renderers.JSONRenderer', 
