@@ -11,6 +11,7 @@ djoser = "*"
 djangorestframework-yaml = "*"
 djangorestframework-csv = "*"
 bleach = "*"
+django-filter = "*"
 
 [dev-packages]
 
