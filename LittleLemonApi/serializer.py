@@ -1,15 +1,35 @@
 from rest_framework import serializers
-from .models import MenuItem
+from .models import MenuItem, Category, Rating
 from decimal import Decimal
-from .models import Category
-from rest_framework.validators import UniqueValidator
+from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 import bleach
+from django.contrib.auth.models import User
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        default=serializers.CurrentUserDefault()
+    )
+    class Meta:
+        model = Rating
+        fields = ['user', 'menuitem_id', 'rating']
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Rating.objects.all(),
+                fields=['user', 'menuitem_id']
+            )
+        ]
+        extra_kwargs = {
+            'rating': {'min_value': 0, 'max_value': 5},
+        }
 
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'slug', 'title']
+        fields = ['id', 'title']
+
 
 class MenuItemSerializer(serializers.ModelSerializer):
     # change the name of the field 'inventory' in models to 'stock'
