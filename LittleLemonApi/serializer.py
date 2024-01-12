@@ -3,7 +3,17 @@ from .models import MenuItem, Category, Rating
 from decimal import Decimal
 from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 import bleach
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'groups']
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'name']
 
 
 class RatingSerializer(serializers.ModelSerializer):
@@ -32,6 +42,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class MenuItemSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
     # change the name of the field 'inventory' in models to 'stock'
     stock = serializers.IntegerField(source='inventory')
     tax = serializers.SerializerMethodField(method_name='calculate_tax')
@@ -44,21 +55,21 @@ class MenuItemSerializer(serializers.ModelSerializer):
         validators=[UniqueValidator(queryset=MenuItem.objects.all())]
     )
 
-    def validate(self, attrs):
-        attrs['title'] = bleach.clean(attrs['title'])
-        if(attrs['price']<2):
-            raise serializers.ValidationError('Price should not be less than 2.0')
-        if(attrs['inventory']<0):
-            raise serializers.ValidationError('Stock cannot be negative')
-        return super().validate(attrs)
-
     class Meta:
         model = MenuItem
-        fields = ['id', 'title', 'price', 'stock', 'tax', 'price_after_tax', 'category', 'category_id']
+        fields = ['id', 'title', 'price', 'stock', 'tax', 'price_after_tax', 'category', 'category_id' ]
         extra_kwargs = {
             'price': {'min_value': 2},
             'inventory': {'min_value': 0}
         }
+
+    # def validate(self, attrs):
+    #     attrs['title'] = bleach.clean(attrs['title'])
+    #     if(attrs['price']<2):
+    #         raise serializers.ValidationError('Price should not be less than 2.0')
+    #     if(attrs['inventory']<0):
+    #         raise serializers.ValidationError('Stock cannot be negative')
+    #     return super().validate(attrs)
 
     def calculate_tax(self, product:MenuItem):
         return round(product.price * Decimal(0.1), 2)
