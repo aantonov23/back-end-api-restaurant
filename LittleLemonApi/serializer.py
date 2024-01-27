@@ -1,19 +1,76 @@
 from rest_framework import serializers
-from .models import MenuItem, Category, Rating
+from .models import MenuItem, Category, Rating, Cart, Order, OrderItem
 from decimal import Decimal
 from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 import bleach
 from django.contrib.auth.models import User, Group
 
-class UserSerializer(serializers.ModelSerializer):
+
+class SimpleMenuItemSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'groups']
+        model = MenuItem
+        fields = ['id', 'title', 'price']
+
+
+class AddCartSerializer(serializers.ModelSerializer):
+    pass
+#     menuitem = serializers.IntegerField()
+
+#     def save(self, **kwargs):
+#         menuitem = self.validated_data['menuitem']
+#         quantity = self.validated_data['quantity']
+#         user = self.context['request'].user #????
+
+#         try:
+#             cartitem = Cart.objects.get(menuitem=menuitem, user=user)
+#             cartitem.quantity += quantity
+#             cartitem.save()
+#         except:
+#             cartitem = Cart.objects.create(menuitem=menuitem, quantity=quantity, user=user)
+
+
+class CartSerializer(serializers.ModelSerializer):
+    # menuitem = SimpleMenuItemSerializer(read_only=True, many=False)
+    # user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), default=serializers.CurrentUserDefault())
+
+    # unit_price = menuitem.data
+    # print(unit_price)
+
+    # price = serializers.SerializerMethodField(method_name='calculate_price')
+    # quantity = serializers.IntegerField(default=1)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'menuitem', 'quantity', 'unit_price', 'price', 'user']
+
+
+    def calculate_price(self, cart:Cart):
+        return cart.unit_price * cart.quantity
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'delivery_crew', 'status', 'total', 'date']
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['order', 'menuitem', 'quantity', 'unit_price', 'price']
+      
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = ['id', 'name']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'groups']
+        depth = 1
 
 
 class RatingSerializer(serializers.ModelSerializer):
@@ -38,7 +95,7 @@ class RatingSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'title']
+        fields = ['id', 'title', 'slug']
 
 
 class MenuItemSerializer(serializers.ModelSerializer):
@@ -57,7 +114,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MenuItem
-        fields = ['id', 'title', 'price', 'stock', 'tax', 'price_after_tax', 'category', 'category_id' ]
+        fields = ['id', 'title', 'price', 'stock', 'tax', 'price_after_tax', 'category', 'category_id']
         extra_kwargs = {
             'price': {'min_value': 2},
             'inventory': {'min_value': 0}

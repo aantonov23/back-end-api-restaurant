@@ -13,6 +13,7 @@ djangorestframework-csv = "*"
 bleach = "*"
 django-filter = "*"
 djangorestframework-simplejwt = "*"
+django-dotenv = "*"
 
 [dev-packages]
 
