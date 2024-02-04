@@ -11,10 +11,11 @@ urlpatterns = [
     path('api-token-auth', obtain_auth_token),
     path('manager-view', views.manager_view),
     path('groups/manager/users', views.managers),
-    path('groups/manager/users/<int:pk>', views.managers_detail),
+    path('groups/manager/users/<int:pk>', views.manager_detail),
     path('groups/delivery-crew/users', views.delivery_crew),
     path('groups/delivery-crew/users/<int:pk>', views.delivery_crew_detail),
     path('cart', views.cart),
+    path('orders', views.orders_view),
     # path('cart', views.CartViewSet.as_view({'get':'list', 'post':'create', 'delete':'destroy'})),
     # path('orders', views.order),
     # path('orders/<int:pk>', views.order_item),
@@ -26,3 +27,4 @@ urlpatterns = [
     # path('throttle-check', views.throttle_check),
     # path('throttle-check-auth', views.throttle_check_auth),
 ]
+

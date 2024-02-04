@@ -16,6 +16,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, ListModelMixin
+from datetime import date
 
 
 class CategoriesView(generics.ListAPIView):
@@ -53,27 +54,30 @@ class RatingView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
     
 
-@api_view(['POST', 'GET'])
+@api_view(['POST', 'GET', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def cart(request):
     carts = Cart.objects.filter(user=request.user)
 
+    if request.method == 'DELETE':
+        carts.delete()
+        return Response(status.HTTP_200_OK)
+        
     if request.method == 'GET':
         serializer = CartSerializer(carts, many=True)
         return Response(serializer.data)
-    
     elif request.method == 'POST':
         try:
-            quantity = request.data['quantity']
+            quantity = int(request.data['quantity'])
         except:
             quantity = 1
-
+        assert (quantity >= 0), ("Quantity must be >= 0")
         try:
-            menuitem_id = request.data['menuitem_id']
+            menuitem = request.data['menuitem']
         except:
             return Response({'message': "menuitem_id not provided"}, status.HTTP_400_BAD_REQUEST)
         
-        menuitem = get_object_or_404(MenuItem, id=menuitem_id)
+        menuitem = get_object_or_404(MenuItem, id=menuitem)
         user = request.user
         unit_price = menuitem.price
         cart = Cart.objects.filter(user=user, menuitem=menuitem)
@@ -85,11 +89,19 @@ def cart(request):
                 unit_price=unit_price,
                 price=menuitem.price*int(quantity)
             )
-            serializer = CartSerializer(cart, data=request.data)
+
+            data = {
+                'menuitem': menuitem.id,
+                'user': user.id, 
+                'quantity': quantity, 
+                'unit_price': unit_price,
+                'price': menuitem.price*int(quantity)
+            }
+            
+            serializer = CartSerializer(cart, data=data)
 
             if not serializer.is_valid():
-                return Response({'message': f"{serializer.errors}"}, status.HTTP_400_BAD_REQUEST)
-            # serializer.is_valid()
+                return Response({'message': serializer.errors}, status.HTTP_400_BAD_REQUEST)
             serializer.save()
             return Response({'message': f"Cart for {user} created, serializer.data: {serializer.data}"}, status.HTTP_201_CREATED)
         else:
@@ -99,6 +111,25 @@ def cart(request):
             cart.save()
             serializer = CartSerializer(cart)
             return Response({'message': f"cart has been updated, new data: {serializer.data}"}, status.HTTP_200_OK)
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def orders_view(request):
+    if request.method == 'POST':
+        user = request.user
+        cart = get_object_or_404(Cart, user=user)
+        data = {
+                    'user': user.id, 
+                    'total': cart.price, 
+                    'date': date.today(),
+                }
+
+        serializer = OrderSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        cart.delete()
+        return Response({'message': f"Order for {user} created"}, status.HTTP_201_CREATED)
 
 
 # class CartViewSet(viewsets.ModelViewSet):
@@ -253,7 +284,7 @@ def managers(request):
 # Remove Manager
 @api_view(['DELETE'])
 @permission_classes([IsManagerOrReadOnly])
-def managers_detail(request, pk):
+def manager_detail(request, pk):
     manager = Group.objects.get(name='Manager')
     user = get_object_or_404(User, pk=pk)
     manager.user_set.remove(user)
