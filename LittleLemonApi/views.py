@@ -1,8 +1,11 @@
 from rest_framework.response import Response
 from rest_framework import viewsets
 from .models import MenuItem, Category, Rating, Cart, Order, OrderItem
-from .serializer import MenuItemSerializer, CategorySerializer, RatingSerializer, GroupSerializer, UserSerializer
-from .serializer import CartSerializer, OrderSerializer, OrderItemSerializer, AddCartSerializer
+from .serializer import (
+    MenuItemSerializer, CategorySerializer, RatingSerializer, 
+    GroupSerializer, UserSerializer, CartSerializer, 
+    OrderSerializer, OrderItemSerializer, 
+)
 from .permissions import IsManagerOrReadOnly
 from rest_framework import generics
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -113,133 +116,106 @@ def cart(request):
             return Response({'message': f"cart has been updated, new data: {serializer.data}"}, status.HTTP_200_OK)
 
 
-@api_view(['POST', 'DELETE'])
+@api_view(['POST', 'DELETE', 'GET'])
 @permission_classes([IsAuthenticated])
 def orders_view(request):
+    user = request.user
+    
     if request.method == 'POST':
-        user = request.user
         cart = get_object_or_404(Cart, user=user)
-        data = {
-                    'user': user.id, 
-                    'total': cart.price, 
-                    'date': date.today(),
+        
+        user = user.id 
+        total = cart.price 
+        _date = date.today()
+        order_data = {
+                    'user': user, 
+                    'total': total, 
+                    'date': _date
                 }
+        order_serializer = OrderSerializer(data=order_data)
+        order_serializer.is_valid(raise_exception=True)
+        order_serializer.save()
+        order = order_serializer.data
 
-        serializer = OrderSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        order_items_data = {
+                    'order': order['id'], 
+                    'menuitem': cart.menuitem.id, 
+                    'quantity': cart.quantity,
+                    'unit_price': cart.unit_price,
+                    'price': total,
+                    'user': user,
+                    'total': total,
+                    'date': _date
+                }
+        order_items_serializer = OrderItemSerializer(data=order_items_data)
+        order_items_serializer.is_valid(raise_exception=True)
+        order_items_serializer.save()
         cart.delete()
-        return Response({'message': f"Order for {user} created"}, status.HTTP_201_CREATED)
+        return Response({'message': f"Order for {user} created. "}, status.HTTP_201_CREATED)
+
+    if request.method == 'GET':
+        if user.groups.filter(name='Manager').exists():
+            orders = Order.objects.all()
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status.HTTP_200_OK)
+        elif user.groups.filter(name='Delivery crew').exists():
+            orders = Order.objects.filter(delivery_crew=user)
+            serializer = OrderSerializer(orders, many=True)
+            return Response(serializer.data, status.HTTP_200_OK)
+        else:
+            orders = OrderItem.objects.filter(order__user=user)
+            serializer = OrderItemSerializer(orders, many=True)
+            return Response(serializer.data, status.HTTP_200_OK)
 
 
-# class CartViewSet(viewsets.ModelViewSet):
-#     queryset = Cart.objects.all()
-#     serializer_class = CartSerializer
-#     permission_classes = [IsAuthenticated,]
-#     lookup_field = 'pk'
+@api_view(['PUT', 'PATCH', 'DELETE', 'GET'])
+@permission_classes([IsAuthenticated])
+def order_detail(request, pk):
+    user = request.user
+    order = get_object_or_404(Order, pk=pk)
+
+    if request.method == 'DELETE' and user.groups.filter(name='Manager').exists():
+        order.delete()
+        return Response(status.HTTP_204_NO_CONTENT)
+    elif request.method == 'DELETE' and not user.groups.filter(name='Manager').exists():
+        return Response(status=status.HTTP_400_BAD_REQUEST)
     
-    # def create(self, request, *args, **kwargs):
-    #     try:
-    #         menuitem_id = request.data['menuitem_id']
-    #     except:
-    #         return Response({'message': "menueitem_id are not provided"}, status.HTTP_400_BAD_REQUEST)
-  
-    
-    # def get_serializer_class(self):
-    #     if self.request.method == 'POST':
-    #         print("\nPoint 3\n")
-    #         return CartSerializer #AddCartSerializer
-    #     print("\nPoint 31\n")
-    #     return CartSerializer
-
-
-
-# @api_view(['POST', 'GET', 'DELETE'])
-# @permission_classes([IsAuthenticated])
-# def cart(request):
-#     if request.method == 'POST':
-#         try:
-#             menueitem_id = request.data['menuitem_id']
-#             quantity = request.data['quantity']
-#         except:
-#             return Response({'message': "menueitem_id or quantity are not provided"}, status.HTTP_400_BAD_REQUEST)
+    if request.method == 'GET':
+        if user.groups.filter(name='Manager').exists():
+            serializer = OrderSerializer(order, many=False)
+            return Response(serializer.data, status.HTTP_200_OK)
+        elif user.groups.filter(name='Delivery crew').exists() and order.delivery_crew == user:
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status.HTTP_200_OK)
+        else:
+            if order.user != user:
+                return Response(status=status.HTTP_400_BAD_REQUEST)
+            order_items = OrderItem.objects.get(order=order)
+            serializer = OrderItemSerializer(order_items)
+            return Response(serializer.data, status.HTTP_200_OK)
         
-#         menuitem = MenuItem.objects.get(id=menueitem_id)
-#         user = request.user
-#         cart = Cart.objects.filter(user=user, menuitem=menuitem)
-#         if not cart.exists():
-#             cart = Cart.objects.create(
-#                 user=user, menuitem=menuitem, quantity=quantity , unit_price=menuitem.price, price=menuitem.price*int(quantity)
-#             )
-#             serializer = CartSerializer(cart, data=request.data)
-
-#             if not serializer.is_valid():
-#                 return Response({'message': f"WTF! {serializer.errors}"}, status.HTTP_400_BAD_REQUEST)
-#             serializer.is_valid()
-#             serializer.save()
-#             return Response({'message': f"Cart for {user} created, serializer.data: {serializer.data}"}, status.HTTP_201_CREATED)
-#         else:
-#             cart = cart.first()
-#             cart.quantity += int(quantity)
-#             cart.price = cart.quantity * cart.unit_price
-#             cart.save()
-#             serializer = CartSerializer(cart)
-#             return Response({'message': f"cart has been updated, new data: {serializer.data}"}, status.HTTP_200_OK)
-        
-#     elif request.method == 'GET':
-#         user = request.user
-#         cart = Cart.objects.filter(user=user)
-#         serializer = CartSerializer(cart, many=True)
-#         return Response(serializer.data, status.HTTP_200_OK)
-    
-#     elif request.method == 'DELETE':
-#         user = request.user
-#         cart = Cart.objects.filter(user=user)
-#         cart.delete()
-#         return Response({'message': f"cart for {user} has been deleted"}, status.HTTP_200_OK)
-
-
-# @api_view(['POST', 'GET'])
-# @permission_classes([IsAuthenticated])
-# def order(request):
-#     if request.method == 'POST':
-#         user = request.user
-#         cart = Cart.objects.filter(user=user)
-#         if not cart.exists():
-#             return Response({'message': f"cart for {user} is empty"}, status.HTTP_400_BAD_REQUEST)
-#         else:
-#             order = Order.objects.create(user=user, total=0, date=timezone.now())
-#             total = 0
-#             for item in cart:
-#                 OrderItem.objects.create(order=order, menuitem=item.menuitem, quantity=item.quantity, unit_price=item.unit_price, price=item.price)
-#                 total += item.price
-#             order.total = total
-#             order.save()
-#             cart.delete()
-#             return Response({'message': f"order for {user} has been created"}, status.HTTP_201_CREATED)
-    
-#     elif request.method == 'GET':
-#         user = request.user
-#         if user.groups.filter(name='Manager').exists():
-#             return Response(OrderSerializer(Order.objects.all(), many=True).data, status.HTTP_200_OK)
-#         elif user.groups.filter(name='Delivery crew').exists():
-#             return Response(OrderSerializer(Order.objects.filter(delivery_crew=user), many=True).data, status.HTTP_200_OK)
-#         else:
-#             orders = Order.objects.filter(user=user)
-#             serializer = OrderSerializer(orders, many=True)
-#             return Response(serializer.data, status.HTTP_200_OK)
-
-
-# @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
-# @permission_classes([IsAuthenticated])
-# def order_item(request, pk):
-#     if request.method == 'GET':
-#         order = get_object_or_404(Order, pk=pk)
-#         serializer = OrderSerializer(order)
-#         return Response(serializer.data, status.HTTP_200_OK)
-            
-        
-
+    elif request.method in ['PUT', 'PATCH']:
+        data = request.data
+        if user.groups.filter(name='Manager').exists():
+            serializer = OrderSerializer(order, data=data, partial=True, many=False)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status.HTTP_200_OK)
+        elif user.groups.filter(name='Delivery crew').exists() and order.delivery_crew == user:
+            data_keys = list(data.keys())
+            if not data_keys[0] == 'status' or len(data_keys) > 1:
+                return Response({'message': "Must change only 'Status'"})
+            serializer = OrderSerializer(order, data=data, partial=True, many=False)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status.HTTP_200_OK)
+        else:
+            order_items = OrderItem.objects.get(order=order, order__user=user)
+            serializer = OrderItemSerializer(order_items, data=data, partial=True, many=False)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status.HTTP_200_OK)
+         
 
 # List all groups
 @api_view(['GET'])

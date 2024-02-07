@@ -12,37 +12,10 @@ class SimpleMenuItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'price']
 
 
-class AddCartSerializer(serializers.ModelSerializer):
-    pass
-#     menuitem = serializers.IntegerField()
-
-#     def save(self, **kwargs):
-#         menuitem = self.validated_data['menuitem']
-#         quantity = self.validated_data['quantity']
-#         user = self.context['request'].user #????
-
-#         try:
-#             cartitem = Cart.objects.get(menuitem=menuitem, user=user)
-#             cartitem.quantity += quantity
-#             cartitem.save()
-#         except:
-#             cartitem = Cart.objects.create(menuitem=menuitem, quantity=quantity, user=user)
-
-
 class CartSerializer(serializers.ModelSerializer):
-    # menuitem = SimpleMenuItemSerializer(read_only=True, many=False)
-    # user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), default=serializers.CurrentUserDefault())
-
-    # unit_price = menuitem.data
-    # print(unit_price)
-
-    # price = serializers.SerializerMethodField(method_name='calculate_price')
-    # quantity = serializers.IntegerField(default=1)
-
     class Meta:
         model = Cart
         fields = ['id', 'menuitem', 'quantity', 'unit_price', 'price', 'user']
-
 
     def calculate_price(self, cart:Cart):
         return cart.unit_price * cart.quantity
@@ -57,8 +30,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
-        fields = ['order', 'menuitem', 'quantity', 'unit_price', 'price']
-      
+        fields = ['order', 'menuitem', 'quantity', 'unit_price', 'price']# 'user']
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
